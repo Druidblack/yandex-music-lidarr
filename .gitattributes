@@ -1,0 +1,28 @@
+# Normalize line endings on commit
+* text=auto eol=lf
+*.cs    text diff=csharp
+*.csproj text
+*.props text
+*.targets text
+*.sln   text eol=crlf
+*.json  text
+*.md    text
+*.yml   text
+*.yaml  text
+*.nix   text
+
+# Binary blobs
+*.png   binary
+*.jpg   binary
+*.ico   binary
+*.dll   binary
+*.exe   binary
+*.snk   binary
+*.zip   binary
+
+# Vendored / generated / external — keep out of language stats and PR diffs
+ext/Lidarr/** linguist-vendored
+**/obj/**     linguist-generated
+**/bin/**     linguist-generated
+_plugins/**   linguist-generated
+docs/external/** linguist-documentation
