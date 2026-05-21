@@ -12,7 +12,8 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
 
-    <PluginRootDir>$(MSBuildThisFileDirectory)..\</PluginRootDir>
+    <PluginRootDir>$(MSBuildThisFileDirectory)../</PluginRootDir>
+    <PluginTargetFramework>net8.0</PluginTargetFramework>
 
     <!-- Anything whose project name starts with Lidarr.Plugin gets the plugin treatment. -->
     <PluginProject>false</PluginProject>
@@ -25,10 +26,16 @@
     <NoWarn>$(NoWarn);CS1591;CS8618;CA1416;CA1822;CA1304;CA1305;CA1310;CA1311;CA2007;IDE0028;IDE0290</NoWarn>
   </PropertyGroup>
 
-  <!-- Plugin output goes to _plugins/<framework>/<project>/, which the release pipeline zips. -->
+  <!-- Plugin output goes to _plugins/<framework>/<project>/ which matches the layout
+       the upstream plugin loader expects and what the release packaging step zips up.
+       The framework slug is hardcoded because plugin projects only target a single
+       framework and $(TargetFramework) is not yet populated when Directory.Build.props
+       is evaluated. -->
   <PropertyGroup Condition="'$(PluginProject)'=='true'">
-    <OutputPath>$(PluginRootDir)_plugins\$(TargetFramework)\$(MSBuildProjectName)\</OutputPath>
+    <BaseOutputPath>$(PluginRootDir)_plugins/$(PluginTargetFramework)/$(MSBuildProjectName)/</BaseOutputPath>
+    <OutputPath>$(BaseOutputPath)</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>

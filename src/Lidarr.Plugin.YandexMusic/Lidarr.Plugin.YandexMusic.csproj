@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>NzbDrone.Core.Plugins.YandexMusic</RootNamespace>
+    <AssemblyName>Lidarr.Plugin.YandexMusic</AssemblyName>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Description>Yandex.Music indexer and download client for Lidarr.</Description>
+
+    <!--
+         MinimumLidarrVersion is read at release time by PluginService to filter
+         compatible Lidarr hosts.  It is also stamped into release notes by the
+         publish workflow.
+    -->
+    <MinimumLidarrVersion>2.2.4.4129</MinimumLidarrVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\ext\Lidarr\src\NzbDrone.Core\Lidarr.Core.csproj">
+      <Private>false</Private>
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </ProjectReference>
+    <ProjectReference Include="..\YandexMusicSharp\YandexMusicSharp.csproj" />
+  </ItemGroup>
+
+</Project>

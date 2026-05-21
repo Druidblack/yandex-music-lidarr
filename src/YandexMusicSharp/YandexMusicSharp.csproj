@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>YandexMusicSharp</RootNamespace>
+    <AssemblyName>YandexMusicSharp</AssemblyName>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Description>Standalone Yandex.Music API client used by the Lidarr plugin.</Description>
+  </PropertyGroup>
+
+</Project>

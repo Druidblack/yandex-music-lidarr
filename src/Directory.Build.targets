@@ -1,6 +1,8 @@
 <Project>
   <!--
-       Reserved for shared MSBuild targets. Currently empty - plugin packaging is handled
-       per-project via ILRepack.targets imported from the plugin csproj.
+       Reserved for shared MSBuild targets evaluated AFTER the SDK targets.
+       Currently empty - the plugin output path is set early in
+       Directory.Build.props because the SDK snapshots it before this file
+       is imported.
   -->
 </Project>
