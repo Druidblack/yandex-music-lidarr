@@ -1,0 +1,64 @@
+<Project>
+  <!--
+       Plug into ILRepack.Lib.MSBuild.Task and merge the YandexMusicSharp helper
+       library into the plugin assembly.  The MSBuild task is registered for us
+       by ILRepack.Lib.MSBuild.Task.targets which also auto-imports this file
+       (because it lives at $(ProjectDir)ILRepack.targets).
+
+       Lidarr ships TagLibSharp-Lidarr, Newtonsoft.Json, NLog, FluentValidation,
+       Polly, System.* and friends in the host process, so we never merge or
+       redistribute those - only YandexMusicSharp is unique to this plugin and
+       therefore must be folded in.
+  -->
+  <!--
+       NOTE: the target must be renamed away from "ILRepack" because the package's
+       own ILRepack.Lib.MSBuild.Task.targets defines a default "ILRepack" target
+       AFTER importing this file.  MSBuild's last-definition-wins rule would
+       otherwise drop the body we set up here in favour of the (skipped) default.
+  -->
+  <Target Name="RepackPlugin" AfterTargets="Build" Condition="'$(PluginProject)'=='true'">
+    <ItemGroup>
+      <_InputAssemblies Include="$(OutputPath)$(AssemblyName).dll" />
+      <_InputAssemblies Include="$(OutputPath)YandexMusicSharp.dll" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <!-- Lidarr.Core lives outside the plugin output dir.  Point ILRepack at it
+           so it can resolve references but not try to merge it. -->
+      <_RepackSearchDirs Include="$(OutputPath)" />
+      <_RepackSearchDirs Include="$(PluginRootDir)ext/Lidarr/_output/net8.0" />
+      <_RepackSearchDirs Include="$(PluginRootDir)ext/Lidarr/_output/net8.0/ref" />
+    </ItemGroup>
+
+    <Message Importance="high"
+             Text="ILRepack: merging @(_InputAssemblies->'%(Filename)%(Extension)', ', ') -> $(OutputPath)$(AssemblyName).dll" />
+
+    <ILRepack
+        Parallel="true"
+        DebugInfo="true"
+        AllowDuplicateResources="false"
+        InputAssemblies="@(_InputAssemblies)"
+        LibraryPath="@(_RepackSearchDirs)"
+        TargetKind="SameAsPrimaryAssembly"
+        OutputFile="$(OutputPath)$(AssemblyName).dll" />
+
+    <!--
+         After merging, scrub the output folder so it only contains the merged DLL
+         (+ pdb).  Lidarr's plugin loader expects a single self-contained directory
+         and we do not want to ship Lidarr.Common.dll or the SqlClient runtimes/.
+    -->
+    <ItemGroup>
+      <_Extras Include="$(OutputPath)**/*"
+               Exclude="$(OutputPath)$(AssemblyName).dll;
+                        $(OutputPath)$(AssemblyName).pdb" />
+    </ItemGroup>
+
+    <Delete Files="@(_Extras)" />
+
+    <ItemGroup>
+      <_ExtraDirs Include="$([System.IO.Directory]::GetDirectories('$(OutputPath)'))" />
+    </ItemGroup>
+
+    <RemoveDir Directories="@(_ExtraDirs)" />
+  </Target>
+</Project>

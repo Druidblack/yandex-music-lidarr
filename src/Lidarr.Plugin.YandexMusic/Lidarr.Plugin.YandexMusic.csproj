@@ -23,4 +23,14 @@
     <ProjectReference Include="..\YandexMusicSharp\YandexMusicSharp.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="ILRepack.Lib.MSBuild.Task" Version="2.0.34.2">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <!-- ILRepack.Lib.MSBuild.Task auto-imports ILRepack.targets from $(ProjectDir).
+       Do not import it manually here or MSBuild raises MSB4011 (duplicate import). -->
+
 </Project>
