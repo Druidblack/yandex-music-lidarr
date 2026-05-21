@@ -10,6 +10,7 @@ _plugins/
 artifacts/
 publish/
 **/Properties/launchSettings.json
+Lidarr.Plugin.YandexMusic*.zip
 
 # .NET / Visual Studio
 *.user

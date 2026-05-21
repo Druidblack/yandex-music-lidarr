@@ -23,7 +23,7 @@ BUILD_FLAGS := --configuration $(CONFIG) --property:NuGetAudit=false \
 
 COMPOSE     ?= docker compose
 
-.PHONY: help restore build rebuild test clean format lint lidarr-up lidarr-down lidarr-restart lidarr-logs lidarr-reset lidarr-shell
+.PHONY: help restore build rebuild test clean format lint package lidarr-up lidarr-down lidarr-restart lidarr-logs lidarr-reset lidarr-shell
 
 help:
 	@echo "Targets:"
@@ -34,6 +34,7 @@ help:
 	@echo "  clean            remove build output and intermediate dirs"
 	@echo "  format           apply csharpier formatting"
 	@echo "  lint             check formatting without modifying files"
+	@echo "  package          build + zip plugin to Lidarr.Plugin.YandexMusic.net8.0.zip"
 	@echo "  lidarr-up        start the local Lidarr nightly container"
 	@echo "  lidarr-down      stop the local Lidarr container"
 	@echo "  lidarr-restart   restart Lidarr (pick up a freshly built plugin)"
@@ -64,6 +65,11 @@ format:
 
 lint:
 	$(DOTNET) tool run csharpier check src
+
+package: build
+	@rm -f Lidarr.Plugin.YandexMusic.net8.0.zip
+	@cd _plugins/net8.0/Lidarr.Plugin.YandexMusic && zip --recurse-paths --quiet "$(CURDIR)/Lidarr.Plugin.YandexMusic.net8.0.zip" .
+	@ls -lh Lidarr.Plugin.YandexMusic.net8.0.zip | awk '{print "Packaged " $$5 " -> " $$NF}'
 
 lidarr-up: build
 	$(COMPOSE) up --detach

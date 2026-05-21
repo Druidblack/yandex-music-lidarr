@@ -12,6 +12,15 @@ namespace NzbDrone.Core.Indexers.YandexMusic
             RuleFor(x => x.OAuthToken)
                 .NotEmpty()
                 .WithMessage("OAuth token is required. See settings help for how to obtain one.");
+
+            // Yandex OAuth tokens are opaque alphanumeric strings with no whitespace.
+            // Catching a stray space here (e.g. the user accidentally pasted the
+            // Lidarr 'Unable to connect to indexer' error message back into the field)
+            // surfaces a clear validation message instead of an opaque HTTP failure.
+            RuleFor(x => x.OAuthToken)
+                .Matches("^[^\\s]+$")
+                .When(x => !string.IsNullOrEmpty(x.OAuthToken))
+                .WithMessage("OAuth token must not contain spaces - paste the raw access_token value from the OAuth redirect URL.");
         }
     }
 

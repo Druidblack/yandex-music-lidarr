@@ -17,6 +17,12 @@ env:
   DOTNET_NOLOGO: "true"
   DOTNET_CLI_TELEMETRY_OPTOUT: "true"
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+  # AssemblyVersion is pinned to 1.0.0 so the TypeRefs Lidarr.Core resolves
+  # against on load line up with the host (Hotio publishes Lidarr.Core with
+  # AssemblyVersion=1.0.0 regardless of marketing version).  The release tag
+  # becomes the InformationalVersion, which is what Lidarr's PluginService
+  # displays as "Plugin Version" in the UI.
+  ASSEMBLY_VERSION: "1.0.0"
 
 jobs:
   publish:
@@ -44,13 +50,23 @@ jobs:
             TAG="${{ github.event.inputs.tag }}"
           fi
           VERSION="${TAG#v}"
-          MIN_LIDARR=$(grep -oE '<MinimumLidarrVersion>[^<]+</MinimumLidarrVersion>' src/Lidarr.Plugin.YandexMusic/Lidarr.Plugin.YandexMusic.csproj | sed -E 's@</?MinimumLidarrVersion>@@g')
+          MIN_LIDARR=$(grep -oE '<MinimumLidarrVersion>[^<]+</MinimumLidarrVersion>' \
+              src/Lidarr.Plugin.YandexMusic/Lidarr.Plugin.YandexMusic.csproj \
+              | sed -E 's@</?MinimumLidarrVersion>@@g')
+          if [ -z "$VERSION" ] || [ -z "$MIN_LIDARR" ]; then
+            echo "Could not resolve VERSION ($VERSION) or MIN_LIDARR ($MIN_LIDARR)." >&2
+            exit 1
+          fi
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "minimum_lidarr=${MIN_LIDARR}" >> "$GITHUB_OUTPUT"
 
       - name: Restore
-        run: dotnet restore src/Lidarr.Plugin.YandexMusic.sln --property:NuGetAudit=false
+        run: |
+          dotnet restore src/Lidarr.Plugin.YandexMusic.sln \
+              --property:NuGetAudit=false \
+              --property:AssemblyVersion=${{ env.ASSEMBLY_VERSION }} \
+              --property:FileVersion=${{ env.ASSEMBLY_VERSION }}
 
       - name: Build (Release)
         run: |
@@ -58,28 +74,85 @@ jobs:
               --configuration Release \
               --no-restore \
               --property:NuGetAudit=false \
-              --property:Version=${{ steps.meta.outputs.version }} \
-              --property:AssemblyVersion=${{ steps.meta.outputs.version }} \
-              --property:FileVersion=${{ steps.meta.outputs.version }} \
-              --property:InformationalVersion=${{ steps.meta.outputs.version }}
+              --property:AssemblyVersion=${{ env.ASSEMBLY_VERSION }} \
+              --property:FileVersion=${{ env.ASSEMBLY_VERSION }} \
+              --property:InformationalVersion=${{ steps.meta.outputs.version }} \
+              --property:Deterministic=true
 
       - name: Run tests
-        run: dotnet test src/Lidarr.Plugin.YandexMusic.sln --configuration Release --no-build --property:NuGetAudit=false
+        run: |
+          dotnet test src/Lidarr.Plugin.YandexMusic.sln \
+              --configuration Release \
+              --no-build \
+              --property:NuGetAudit=false \
+              --property:AssemblyVersion=${{ env.ASSEMBLY_VERSION }} \
+              --property:FileVersion=${{ env.ASSEMBLY_VERSION }}
+
+      - name: Verify packaging layout
+        run: |
+          PLUGIN_DIR=_plugins/net8.0/Lidarr.Plugin.YandexMusic
+          test -f "$PLUGIN_DIR/Lidarr.Plugin.YandexMusic.dll"
+          # Lidarr's PluginService.GetRemotePlugin filters release assets whose
+          # name contains 'net8.0.zip'; anything else in the output directory
+          # would be shipped to end users by mistake.
+          EXTRA=$(find "$PLUGIN_DIR" -mindepth 1 -maxdepth 1 \
+                   -not -name 'Lidarr.Plugin.YandexMusic.dll' \
+                   -not -name 'Lidarr.Plugin.YandexMusic.pdb')
+          if [ -n "$EXTRA" ]; then
+            echo "Unexpected files in plugin output: $EXTRA" >&2
+            exit 1
+          fi
 
       - name: Package zip
         id: pack
         run: |
           PLUGIN_DIR=_plugins/net8.0/Lidarr.Plugin.YandexMusic
           ZIP_NAME=Lidarr.Plugin.YandexMusic.net8.0.zip
-          (cd "$PLUGIN_DIR" && zip -r "$GITHUB_WORKSPACE/$ZIP_NAME" .)
+          (cd "$PLUGIN_DIR" && zip --recurse-paths --quiet "$GITHUB_WORKSPACE/$ZIP_NAME" .)
           echo "zip=$ZIP_NAME" >> "$GITHUB_OUTPUT"
+          ls -lh "$GITHUB_WORKSPACE/$ZIP_NAME"
 
-      - name: Create GitHub release
+      - name: Write release notes
+        id: notes
+        run: |
+          cat <<EOF > release_notes.md
+          # ${{ steps.meta.outputs.tag }}
+
+          MinimumLidarrVersion: ${{ steps.meta.outputs.minimum_lidarr }}
+
+          Built with InformationalVersion ${{ steps.meta.outputs.version }};
+          Lidarr.Core compatibility pinned to AssemblyVersion ${{ env.ASSEMBLY_VERSION }}.
+
+          ## Install
+
+          In Lidarr (nightly / pr-plugins branch):
+
+          \`Settings -> Plugins -> Install\` -> paste:
+
+          \`\`\`text
+          https://github.com/${GITHUB_REPOSITORY}
+          \`\`\`
+
+          The plugin loader auto-picks the latest release whose asset name
+          contains \`net8.0.zip\` and whose body advertises a compatible
+          \`MinimumLidarrVersion\`.
+          EOF
+          echo "path=release_notes.md" >> "$GITHUB_OUTPUT"
+
+      - name: Create / update GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${{ steps.meta.outputs.tag }}" \
-              "${{ steps.pack.outputs.zip }}" \
-              --title "${{ steps.meta.outputs.tag }}" \
-              --notes "MinimumLidarrVersion: ${{ steps.meta.outputs.minimum_lidarr }}" \
-              --verify-tag
+          if gh release view "${{ steps.meta.outputs.tag }}" >/dev/null 2>&1; then
+            gh release upload "${{ steps.meta.outputs.tag }}" \
+                "${{ steps.pack.outputs.zip }}" --clobber
+            gh release edit "${{ steps.meta.outputs.tag }}" \
+                --notes-file "${{ steps.notes.outputs.path }}" \
+                --title "${{ steps.meta.outputs.tag }}"
+          else
+            gh release create "${{ steps.meta.outputs.tag }}" \
+                "${{ steps.pack.outputs.zip }}" \
+                --title "${{ steps.meta.outputs.tag }}" \
+                --notes-file "${{ steps.notes.outputs.path }}" \
+                --verify-tag
+          fi
