@@ -104,6 +104,7 @@ namespace NzbDrone.Core.Download.Clients.YandexMusic.Queue
             try
             {
                 item.Status = DownloadItemStatus.Downloading;
+                item.StartedAt = DateTime.UtcNow;
 
                 var client = YandexMusicApi.GetClient(_settings.OAuthToken);
                 var album = await client.Albums.GetWithTracksAsync(item.YandexAlbumId, cancellationToken).ConfigureAwait(false);
@@ -123,6 +124,12 @@ namespace NzbDrone.Core.Download.Clients.YandexMusic.Queue
                     MarkFailed(item, "No tracks are available for this album with the bound account.");
                     return;
                 }
+
+                // Refine TotalSize from actual track durations + the nominal bitrate of
+                // the requested quality.  The indexer-side estimate uses an
+                // 3.5 min average track length; the precise total comes from the
+                // /albums/{id}/with-tracks payload that we just fetched.
+                item.TotalSize = EstimateTotalSize(tracks, item.Quality);
 
                 using var concurrency = new SemaphoreSlim(_settings.MaxConcurrentTracks);
                 var downloadTasks = new List<Task>(tracks.Count);
@@ -215,6 +222,19 @@ namespace NzbDrone.Core.Download.Clients.YandexMusic.Queue
         {
             item.Status = DownloadItemStatus.Failed;
             item.Message = message;
+        }
+
+        private static long EstimateTotalSize(IReadOnlyCollection<Track> tracks, YandexQuality quality)
+        {
+            var bitrateKbps = quality switch
+            {
+                YandexQuality.Low => 64,
+                YandexQuality.Normal => 192,
+                YandexQuality.Lossless => 1100,
+                _ => 192,
+            };
+            var totalSeconds = tracks.Sum(track => track.DurationMs) / 1000.0;
+            return (long)(totalSeconds * bitrateKbps * 1000 / 8);
         }
     }
 }

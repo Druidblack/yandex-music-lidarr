@@ -38,6 +38,8 @@ namespace NzbDrone.Core.Download.Clients.YandexMusic.Queue
 
         public long DownloadedSize { get; set; }
 
+        public DateTime? StartedAt { get; set; }
+
         public string Message { get; set; } = string.Empty;
 
         public OsPath OutputPath { get; set; }
@@ -54,12 +56,39 @@ namespace NzbDrone.Core.Download.Clients.YandexMusic.Queue
                 Title = Title,
                 TotalSize = totalSize,
                 RemainingSize = remaining,
+                RemainingTime = EstimateRemainingTime(remaining),
                 OutputPath = OutputPath,
                 Status = Status,
                 Message = Message,
                 CanBeRemoved = Status is DownloadItemStatus.Completed or DownloadItemStatus.Failed,
                 CanMoveFiles = Status is DownloadItemStatus.Completed,
             };
+        }
+
+        private TimeSpan? EstimateRemainingTime(long remainingBytes)
+        {
+            if (Status is not DownloadItemStatus.Downloading)
+            {
+                return null;
+            }
+            if (StartedAt is null || DownloadedSize <= 0 || remainingBytes <= 0)
+            {
+                return null;
+            }
+
+            var elapsed = DateTime.UtcNow - StartedAt.Value;
+            if (elapsed.TotalSeconds < 1)
+            {
+                return null;
+            }
+
+            var bytesPerSecond = DownloadedSize / elapsed.TotalSeconds;
+            if (bytesPerSecond <= 0)
+            {
+                return null;
+            }
+
+            return TimeSpan.FromSeconds(remainingBytes / bytesPerSecond);
         }
 
         /// <summary>
