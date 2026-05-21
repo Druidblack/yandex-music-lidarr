@@ -67,7 +67,11 @@ namespace NzbDrone.Core.Indexers.YandexMusic
             };
             request.Headers.Add("Authorization", $"OAuth {Settings.OAuthToken}");
             request.Headers.Add("X-Yandex-Music-Client", YandexMusicHttpClient.DefaultClientHeader);
-            request.Headers["User-Agent"] = YandexMusicHttpClient.DefaultUserAgent;
+            // Note: do not override User-Agent here.  Lidarr's ManagedHttpDispatcher
+            // explicitly rejects any User-Agent other than its own ("User-Agent other
+            // than Lidarr not allowed") and the Yandex API does not require a
+            // specific UA - the X-Yandex-Music-Client header is what unlocks the
+            // lossless tier and signals the Android client identity to the server.
 
             yield return new IndexerRequest(request);
         }
