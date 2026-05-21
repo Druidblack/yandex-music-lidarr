@@ -1,0 +1,62 @@
+# Local Lidarr nightly (with plugin support) for end-to-end testing.
+#
+# Lidarr's plugin subsystem ships only on the `plugins` branch which Hotio
+# tags as `pr-plugins`.  The image is multiarch (linux/amd64, linux/arm64)
+# so it runs natively on Apple Silicon under Colima/containerd.
+#
+# Bring up with:    make lidarr-up      (or: docker compose up --detach)
+# Tear down with:   make lidarr-down    (or: docker compose down)
+# Reset state:      make lidarr-reset   (or: docker compose down --volumes)
+#
+# The merged plugin DLL is bind-mounted into Lidarr's plugin directory so
+# `make build` followed by `make lidarr-restart` is a tight iteration loop.
+
+name: yandex-music-lidarr
+
+services:
+  lidarr:
+    image: ghcr.io/hotio/lidarr:pr-plugins
+    container_name: yandex-music-lidarr
+    restart: unless-stopped
+
+    environment:
+      # Hotio runs as PUID/PGID; default 1000/1000 lines up with most macOS
+      # users.  Override via `.env` if the host UID is different.
+      PUID: ${LIDARR_PUID:-1000}
+      PGID: ${LIDARR_PGID:-1000}
+      UMASK: "002"
+      TZ: ${TZ:-Europe/Moscow}
+
+    ports:
+      # Lidarr web UI.  Avoid the standard 8686 in case the host already
+      # has it bound; override via .env if 18686 is taken.
+      - "${LIDARR_PORT:-18686}:8686"
+
+    volumes:
+      # Persistent config (database, settings, downloaded plugin install state).
+      - lidarr-config:/config
+
+      # Where Lidarr's import scanner looks for completed downloads.
+      - lidarr-downloads:/downloads
+
+      # Where Lidarr writes the imported library.  Mount somewhere local if you
+      # want to inspect the imported FLAC/MP3 files from the host.
+      - lidarr-music:/music
+
+      # The plugin under test, bind-mounted read-only into Lidarr's plugin
+      # directory.  `make build` re-emits the merged DLL into _plugins/, so a
+      # `make lidarr-restart` picks the new build up after each iteration.
+      - ./_plugins/net8.0/Lidarr.Plugin.YandexMusic:/config/plugins/kitsunoff/Lidarr.Plugin.YandexMusic:ro
+
+    # Healthcheck pings the Lidarr API ping endpoint until it answers.
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8686/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+volumes:
+  lidarr-config:
+  lidarr-downloads:
+  lidarr-music:
