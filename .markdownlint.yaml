@@ -1,15 +1,19 @@
-# Markdownlint configuration.  Defaults are sensible; relax a handful of rules
-# that conflict with the way we write technical research notes.
+# Markdownlint configuration.  Relaxes a handful of rules that fight the way
+# technical docs are usually written: long reference rows, GitHub admonitions
+# stacked back-to-back, code fences inside ordered lists.
 default: true
 
-# Line length: technical docs include long URLs and code references.
+# Line length: technical docs include long URLs, table rows with multiple
+# links, and reference lists.  400 is generous enough that real
+# accidentally-long paragraphs still get flagged.
 MD013:
-  line_length: 200
+  line_length: 400
   code_blocks: false
   tables: false
   headings: false
 
-# Inline HTML is occasionally useful for admonitions and details/summary.
+# Inline HTML is occasionally useful for centred banners (<div align="center">)
+# and details/summary collapsibles.
 MD033: false
 
 # Multiple consecutive blank lines: allow up to two.
@@ -19,6 +23,13 @@ MD012:
 # Bare URLs in technical notes are acceptable.
 MD034: false
 
-# First-line heading not strictly required (notes may start with frontmatter or
-# a callout).
+# First-line heading not required (admonitions / badges often come first).
 MD041: false
+
+# Adjacent blockquotes separated by a blank line is the standard syntax for
+# GitHub callouts (> [!NOTE] followed by > [!WARNING]).
+MD028: false
+
+# Fenced code blocks inside ordered lists need 4-space indentation, which
+# most editors strip on autoformat.  The fences still render correctly.
+MD031: false
