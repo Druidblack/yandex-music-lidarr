@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -188,12 +189,56 @@ namespace NzbDrone.Core.Download.Clients.YandexMusic.Queue
             }
 
             var info = await client.Downloads.GetAsync(trackId, item.Quality, cancellationToken).ConfigureAwait(false);
-            var bytes = await client.DownloadDecryptedAsync(info, cancellationToken).ConfigureAwait(false);
+
+            // Make the requested-vs-served codec discrepancy visible.  Yandex silently
+            // downgrades to AAC when the account does not have an active Plus
+            // subscription or when the specific track is missing a lossless master.
+            var requestedQuality = item.Quality.ToApiString();
+            var servedQuality = info.Quality;
+            var servedCodec = string.IsNullOrEmpty(info.Codec) ? "unknown" : info.Codec;
+            if (!string.Equals(requestedQuality, servedQuality, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger?.Warn(
+                    "Yandex.Music track {0} ({1}): requested {2} but server returned {3} ({4}, {5} kbps). Check Yandex Plus on the bound account.",
+                    track.Id,
+                    track.Title,
+                    requestedQuality,
+                    servedQuality,
+                    servedCodec,
+                    info.Bitrate);
+            }
+            else
+            {
+                _logger?.Info(
+                    "Yandex.Music track {0} ({1}): {2} {3} kbps, size {4} bytes",
+                    track.Id,
+                    track.Title,
+                    servedCodec,
+                    info.Bitrate,
+                    info.Size?.ToString(CultureInfo.InvariantCulture) ?? "unknown");
+            }
 
             var fileName = TrackFileNamer.BuildFileName(track, album, info);
             var fullPath = Path.Combine(albumFolder, fileName);
 
-            await File.WriteAllBytesAsync(fullPath, bytes, cancellationToken).ConfigureAwait(false);
+            // Stream the encrypted CDN body through the AES-CTR transformer straight
+            // to disk - no buffering of multi-MB FLAC payloads in process memory.
+            // Per-chunk progress reports drive the queue's ETA estimate.
+            var lastReported = 0L;
+            var progress = new Progress<long>(bytesSoFar =>
+            {
+                var delta = bytesSoFar - lastReported;
+                if (delta > 0)
+                {
+                    Interlocked.Add(ref item.DownloadedSizeField, delta);
+                    lastReported = bytesSoFar;
+                }
+            });
+
+            await using (var output = new FileStream(fullPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 64 * 1024, useAsync: true))
+            {
+                await client.DownloadDecryptedToAsync(info, output, progress, cancellationToken).ConfigureAwait(false);
+            }
 
             try
             {
@@ -203,8 +248,6 @@ namespace NzbDrone.Core.Download.Clients.YandexMusic.Queue
             {
                 _logger?.Warn(ex, "Failed to write tags to {0}; the file is still on disk.", fullPath);
             }
-
-            item.DownloadedSize += info.Size ?? bytes.LongLength;
 
             if (_settings.DownloadDelayMs > 0)
             {

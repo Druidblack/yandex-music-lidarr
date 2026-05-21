@@ -98,6 +98,27 @@ public sealed class YandexMusicHttpClient : IDisposable
         return await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Issues a GET and returns the streaming response.  The caller takes
+    /// ownership of the returned <see cref="HttpResponseMessage"/> and must
+    /// dispose it.  Used for chunked decryption of large encrypted audio
+    /// payloads where buffering the whole body would waste memory.
+    /// </summary>
+    public async Task<HttpResponseMessage> GetStreamingAsync(Uri url, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(url);
+        var response = await _client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            response.Dispose();
+            throw new YandexMusicException($"GET {url} returned HTTP {(int)response.StatusCode}.")
+            {
+                StatusCode = response.StatusCode,
+            };
+        }
+        return response;
+    }
+
     private static Uri BuildUri(string path, IReadOnlyDictionary<string, string?>? query)
     {
         if (string.IsNullOrEmpty(path))

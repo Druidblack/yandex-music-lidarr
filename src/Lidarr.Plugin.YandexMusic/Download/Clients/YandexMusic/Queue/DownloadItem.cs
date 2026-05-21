@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using NzbDrone.Common.Disk;
 using NzbDrone.Core.Parser.Model;
 using YandexMusicSharp;
@@ -36,7 +37,13 @@ namespace NzbDrone.Core.Download.Clients.YandexMusic.Queue
 
         public long TotalSize { get; set; }
 
-        public long DownloadedSize { get; set; }
+        /// <summary>
+        /// Public field (not auto-property) so consumers can update it atomically
+        /// from concurrent track downloads via <c>Interlocked.Add(ref item.DownloadedSizeField, delta)</c>.
+        /// </summary>
+        public long DownloadedSizeField;
+
+        public long DownloadedSize => Volatile.Read(ref DownloadedSizeField);
 
         public DateTime? StartedAt { get; set; }
 
