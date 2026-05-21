@@ -1,5 +1,4 @@
 using System;
-using System.Globalization;
 using NzbDrone.Common.Disk;
 using NzbDrone.Core.Parser.Model;
 using YandexMusicSharp;
@@ -65,39 +64,14 @@ namespace NzbDrone.Core.Download.Clients.YandexMusic.Queue
 
         /// <summary>
         /// Parses the custom <c>yandexmusic://album/{albumId}/quality/{quality}</c>
-        /// URL emitted by the indexer back into structured fields.
+        /// URL emitted by the indexer back into structured fields.  The parsing
+        /// itself lives in <see cref="DownloadAddress"/> over in YandexMusicSharp
+        /// so it can be unit-tested without Lidarr.Core in the way.
         /// </summary>
         public static (long AlbumId, YandexQuality Quality) ParseDownloadUrl(string downloadUrl)
         {
-            if (string.IsNullOrWhiteSpace(downloadUrl))
-            {
-                throw new ArgumentException("Download URL must not be empty.", nameof(downloadUrl));
-            }
-
-            const string prefix = "yandexmusic://album/";
-            if (!downloadUrl.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new FormatException($"Download URL '{downloadUrl}' does not start with '{prefix}'.");
-            }
-
-            var remainder = downloadUrl[prefix.Length..];
-            var parts = remainder.Split('/', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length < 3 || !string.Equals(parts[1], "quality", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new FormatException($"Download URL '{downloadUrl}' is missing the '/quality/<tier>' suffix.");
-            }
-
-            if (!long.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var albumId))
-            {
-                throw new FormatException($"Album id '{parts[0]}' in download URL is not a number.");
-            }
-
-            if (!Enum.TryParse<YandexQuality>(parts[2], ignoreCase: true, out var quality))
-            {
-                throw new FormatException($"Quality '{parts[2]}' in download URL is not a known YandexQuality value.");
-            }
-
-            return (albumId, quality);
+            var address = DownloadAddress.Parse(downloadUrl);
+            return (address.AlbumId, address.Quality);
         }
     }
 }
