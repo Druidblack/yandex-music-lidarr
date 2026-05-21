@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+
+jobs:
+  build:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+          global-json-file: src/global.json
+
+      - name: Restore
+        run: dotnet restore src/Lidarr.Plugin.YandexMusic.sln --property:NuGetAudit=false
+
+      - name: Build (Release)
+        run: dotnet build src/Lidarr.Plugin.YandexMusic.sln --configuration Release --no-restore --property:NuGetAudit=false
+
+      - name: Test
+        run: dotnet test src/Lidarr.Plugin.YandexMusic.sln --configuration Release --no-build --property:NuGetAudit=false --logger "trx;LogFileName=test-results.trx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: "**/TestResults/test-results.trx"
+          retention-days: 14
+
+      - name: Upload plugin artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lidarr.Plugin.YandexMusic.net8.0
+          path: _plugins/net8.0/Lidarr.Plugin.YandexMusic/
+          retention-days: 7
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+          fetch-depth: 1
+
+      - name: Markdown lint
+        uses: DavidAnson/markdownlint-cli2-action@v18
+        with:
+          globs: |
+            **/*.md
+            !ext/**
+            !**/node_modules/**
+
+      - name: EditorConfig check
+        uses: editorconfig-checker/action-editorconfig-checker@v2

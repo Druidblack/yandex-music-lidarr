@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to publish (must already exist)."
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+
+jobs:
+  publish:
+    name: Build & Publish Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+          global-json-file: src/global.json
+
+      - name: Resolve version metadata
+        id: meta
+        run: |
+          TAG="${GITHUB_REF##*/}"
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          fi
+          VERSION="${TAG#v}"
+          MIN_LIDARR=$(grep -oE '<MinimumLidarrVersion>[^<]+</MinimumLidarrVersion>' src/Lidarr.Plugin.YandexMusic/Lidarr.Plugin.YandexMusic.csproj | sed -E 's@</?MinimumLidarrVersion>@@g')
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "minimum_lidarr=${MIN_LIDARR}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore
+        run: dotnet restore src/Lidarr.Plugin.YandexMusic.sln --property:NuGetAudit=false
+
+      - name: Build (Release)
+        run: |
+          dotnet build src/Lidarr.Plugin.YandexMusic.sln \
+              --configuration Release \
+              --no-restore \
+              --property:NuGetAudit=false \
+              --property:Version=${{ steps.meta.outputs.version }} \
+              --property:AssemblyVersion=${{ steps.meta.outputs.version }} \
+              --property:FileVersion=${{ steps.meta.outputs.version }} \
+              --property:InformationalVersion=${{ steps.meta.outputs.version }}
+
+      - name: Run tests
+        run: dotnet test src/Lidarr.Plugin.YandexMusic.sln --configuration Release --no-build --property:NuGetAudit=false
+
+      - name: Package zip
+        id: pack
+        run: |
+          PLUGIN_DIR=_plugins/net8.0/Lidarr.Plugin.YandexMusic
+          ZIP_NAME=Lidarr.Plugin.YandexMusic.net8.0.zip
+          (cd "$PLUGIN_DIR" && zip -r "$GITHUB_WORKSPACE/$ZIP_NAME" .)
+          echo "zip=$ZIP_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.meta.outputs.tag }}" \
+              "${{ steps.pack.outputs.zip }}" \
+              --title "${{ steps.meta.outputs.tag }}" \
+              --notes "MinimumLidarrVersion: ${{ steps.meta.outputs.minimum_lidarr }}" \
+              --verify-tag
