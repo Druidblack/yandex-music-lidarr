@@ -14,7 +14,23 @@
 name: yandex-music-lidarr
 
 services:
+  # One-shot init that chowns the named volumes to the hotio PUID/PGID before
+  # Lidarr starts.  Hotio's own s6 init only chowns /config; /downloads and
+  # /music start out owned by root, which would leave the daemon unable to
+  # write into them and the Download Client "Test" button failing with
+  # "Unable to write to folder".
+  volume-init:
+    image: alpine:3.20
+    container_name: yandex-music-lidarr-init
+    command: ["sh", "-c", "chown -R ${LIDARR_PUID:-1000}:${LIDARR_PGID:-1000} /downloads /music && echo 'volumes chowned'"]
+    volumes:
+      - lidarr-downloads:/downloads
+      - lidarr-music:/music
+
   lidarr:
+    depends_on:
+      volume-init:
+        condition: service_completed_successfully
     image: ghcr.io/hotio/lidarr:pr-plugins
     container_name: yandex-music-lidarr
     restart: unless-stopped
