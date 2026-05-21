@@ -1,0 +1,6 @@
+<Project>
+  <!--
+       Reserved for shared MSBuild targets. Currently empty - plugin packaging is handled
+       per-project via ILRepack.targets imported from the plugin csproj.
+  -->
+</Project>

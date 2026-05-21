@@ -1,0 +1,47 @@
+<Project>
+  <!--
+       Shared MSBuild conventions for the Yandex.Music Lidarr plugin.
+       This file is picked up automatically by MSBuild for every project under src/.
+       Lidarr.Core.csproj (referenced from ext/Lidarr) keeps its own Directory.Build.props
+       because MSBuild stops at the first one found while walking up from each project.
+  -->
+  <PropertyGroup>
+    <AnalysisLevel>8.0-recommended</AnalysisLevel>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
+
+    <PluginRootDir>$(MSBuildThisFileDirectory)..\</PluginRootDir>
+
+    <!-- Anything whose project name starts with Lidarr.Plugin gets the plugin treatment. -->
+    <PluginProject>false</PluginProject>
+    <PluginProject Condition="$(MSBuildProjectName.StartsWith('Lidarr.Plugin'))">true</PluginProject>
+
+    <TestProject>false</TestProject>
+    <TestProject Condition="$(MSBuildProjectName.EndsWith('.Tests'))">true</TestProject>
+
+    <!-- XML documentation is not enforced for plugin sources. -->
+    <NoWarn>$(NoWarn);CS1591;CS8618;CA1416;CA1822;CA1304;CA1305;CA1310;CA1311;CA2007;IDE0028;IDE0290</NoWarn>
+  </PropertyGroup>
+
+  <!-- Plugin output goes to _plugins/<framework>/<project>/, which the release pipeline zips. -->
+  <PropertyGroup Condition="'$(PluginProject)'=='true'">
+    <OutputPath>$(PluginRootDir)_plugins\$(TargetFramework)\$(MSBuildProjectName)\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!-- Test projects get the standard test SDK and runner packages. -->
+  <ItemGroup Condition="'$(TestProject)'=='true'">
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
+    <PackageReference Include="NUnit" Version="3.14.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="5.1.0" />
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+  </ItemGroup>
+
+  <PropertyGroup Condition="'$(TestProject)'=='true'">
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+</Project>
