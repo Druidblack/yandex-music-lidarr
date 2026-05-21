@@ -18,7 +18,7 @@ public sealed class YandexMusicHttpClient : IDisposable
     public const string DefaultUserAgent = "Yandex-Music-API";
     public const string DefaultClientHeader = "YandexMusicAndroid/24023621";
 
-    internal static readonly JsonSerializerOptions JsonOptions = new()
+    public static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true,
