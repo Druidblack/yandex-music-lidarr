@@ -9,7 +9,17 @@
 SOLUTION    := src/Lidarr.Plugin.YandexMusic.sln
 DOTNET      := dotnet
 CONFIG      ?= Release
-BUILD_FLAGS := --configuration $(CONFIG) --property:NuGetAudit=false
+
+# Pin Lidarr.Core's AssemblyVersion to 1.0.0 (the same value Hotio's
+# pr-plugins build uses for the host process).  Without this override the
+# upstream Directory.Build.props produces a timestamp-based "10.0.0.*"
+# version, which our plugin's type-refs then bake in and the plugin loader
+# rejects against the 1.0.0 Lidarr.Core the container ships with.
+ASSEMBLY_VERSION ?= 1.0.0
+BUILD_FLAGS := --configuration $(CONFIG) --property:NuGetAudit=false \
+               --property:AssemblyVersion=$(ASSEMBLY_VERSION) \
+               --property:FileVersion=$(ASSEMBLY_VERSION) \
+               --property:Deterministic=true
 
 COMPOSE     ?= docker compose
 
@@ -32,7 +42,9 @@ help:
 	@echo "  lidarr-reset     stop Lidarr and wipe its volumes (DATA LOSS)"
 
 restore:
-	$(DOTNET) restore $(SOLUTION) --property:NuGetAudit=false
+	$(DOTNET) restore $(SOLUTION) --property:NuGetAudit=false \
+	    --property:AssemblyVersion=$(ASSEMBLY_VERSION) \
+	    --property:FileVersion=$(ASSEMBLY_VERSION)
 
 build:
 	$(DOTNET) build $(SOLUTION) $(BUILD_FLAGS)
