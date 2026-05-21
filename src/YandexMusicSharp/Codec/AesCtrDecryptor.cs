@@ -3,15 +3,20 @@ using System.Security.Cryptography;
 namespace YandexMusicSharp.Codec;
 
 /// <summary>
-/// Decrypts the AES-256-CTR stream returned by the Yandex.Music get-file-info
+/// Decrypts the AES-CTR stream returned by the Yandex.Music get-file-info
 /// <c>encraw</c> transport.  The IV is fixed at 16 zero bytes (12-byte nonce
 /// followed by a 4-byte big-endian counter starting at zero), exactly the
 /// scheme described by @keltecc and adopted by the ymd reference project.
+///
+/// Yandex returns keys of varying sizes depending on the track/quality - the
+/// AES standard supports 128 / 192 / 256-bit keys, all valid here; .NET's
+/// underlying Aes provider picks the right block cipher variant based on
+/// <c>Aes.Key.Length</c>.
 /// </summary>
 public static class AesCtrDecryptor
 {
     private const int BlockSize = 16;
-    private const int Aes256KeyLength = 32;
+    private static readonly int[] AllowedKeyLengths = { 16, 24, 32 };
 
     /// <summary>
     /// Decrypts the supplied ciphertext in one shot.  Suitable when the encrypted
@@ -20,10 +25,10 @@ public static class AesCtrDecryptor
     /// </summary>
     public static byte[] Decrypt(ReadOnlySpan<byte> key, ReadOnlySpan<byte> ciphertext)
     {
-        if (key.Length != Aes256KeyLength)
+        if (Array.IndexOf(AllowedKeyLengths, key.Length) < 0)
         {
             throw new ArgumentException(
-                $"AES-256-CTR requires a {Aes256KeyLength}-byte key, got {key.Length}.",
+                $"AES-CTR requires a 16, 24 or 32-byte key, got {key.Length}.",
                 nameof(key));
         }
 

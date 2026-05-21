@@ -73,7 +73,18 @@ public class AesCtrDecryptorTests
     [Test]
     public void Decrypt_InvalidKeyLength_Throws()
     {
-        var tooShort = new byte[16];
-        Assert.Throws<ArgumentException>(() => AesCtrDecryptor.Decrypt(tooShort, new byte[16]));
+        var wrongLength = new byte[17];
+        Assert.Throws<ArgumentException>(() => AesCtrDecryptor.Decrypt(wrongLength, new byte[16]));
+    }
+
+    [Test]
+    public void Decrypt_AcceptsAes128Key()
+    {
+        // The Yandex encraw transport occasionally hands out 16-byte (AES-128)
+        // keys instead of the doc'd 32-byte ones.  Just verify the decryptor no
+        // longer rejects them up-front; correctness is implicit via the AES
+        // primitive.
+        var key = new byte[16];
+        Assert.DoesNotThrow(() => AesCtrDecryptor.Decrypt(key, new byte[16]));
     }
 }
