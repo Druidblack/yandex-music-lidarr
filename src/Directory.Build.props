@@ -23,7 +23,7 @@
     <TestProject Condition="$(MSBuildProjectName.EndsWith('.Tests'))">true</TestProject>
 
     <!-- XML documentation is not enforced for plugin sources. -->
-    <NoWarn>$(NoWarn);CS1591;CS8618;CA1416;CA1822;CA1304;CA1305;CA1310;CA1311;CA2007;IDE0028;IDE0290</NoWarn>
+    <NoWarn>$(NoWarn);CS1591;CS8618;CA1416;CA1707;CA1822;CA1304;CA1305;CA1310;CA1311;CA2007;IDE0028;IDE0290</NoWarn>
   </PropertyGroup>
 
   <!-- Plugin output goes to _plugins/<framework>/<project>/ which matches the layout
