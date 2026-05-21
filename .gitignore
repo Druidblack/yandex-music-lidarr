@@ -1,0 +1,85 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Ll]og/
+[Ll]ogs/
+_plugins/
+[Bb]uild/
+[Bb]uilds/
+artifacts/
+publish/
+**/Properties/launchSettings.json
+
+# .NET / Visual Studio
+*.user
+*.userosscache
+*.suo
+*.userprefs
+*.dbmdl
+*.dbproj.schemaview
+*.jfm
+*.pfx
+*.publishsettings
+*.swp
+*.swo
+*.cache
+*.tmp
+*.log
+*.vs/
+.vs/
+.vscode/
+.idea/
+.fake/
+*.code-workspace
+
+# NuGet
+*.nupkg
+*.snupkg
+*.nuget.props
+*.nuget.targets
+.nuget/
+packages/
+!**/packages/build/
+project.lock.json
+project.fragment.lock.json
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+nuget.exe
+
+# Rider / ReSharper
+_ReSharper.Caches/
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# Test results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.coverage
+*.coveragexml
+coverage*.json
+coverage*.xml
+coverage*.info
+.coverlet/
+
+# Nix
+result
+result-*
+
+# Local secrets and editor state
+.env
+.env.*
+*.secrets
+secrets/
+.direnv/
+
+# OS noise
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+Desktop.ini
+
+# Claude Code local overrides (do not commit local-only settings)
+.claude/settings.local.json
