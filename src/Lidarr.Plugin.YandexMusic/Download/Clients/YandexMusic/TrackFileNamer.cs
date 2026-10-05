@@ -1,16 +1,21 @@
 using System.Globalization;
+using System.Text;
 using YandexMusicSharp.Models;
 
 namespace NzbDrone.Core.Download.Clients.YandexMusic
 {
     internal static class TrackFileNamer
     {
+        // Linux/ext4, XFS, CIFS and most NAS filesystems allow at most 255 bytes
+        // in one path component.  Limit the *complete* filename, not only the
+        // track title, because the track/disc prefix and extension consume bytes too.
+        private const int MaxFileNameBytes = 255;
+
         public static string BuildFileName(Track track, Album album, DownloadInfo info)
         {
             var position = ResolveTrackPosition(track, album);
             var paddedIndex = position.Track.ToString("00", CultureInfo.InvariantCulture);
             var extension = ResolveExtension(info.Codec);
-            var title = PathSanitizer.Sanitize(ComposeTitle(track.Title, track.Version));
 
             // Preserve the historical single-disc filename format, but include the
             // volume number when the release has multiple discs so Disc 1 Track 1
@@ -18,6 +23,10 @@ namespace NzbDrone.Core.Download.Clients.YandexMusic
             var prefix = album.Volumes is { Count: > 1 }
                 ? $"{Math.Max(position.Disc, 1).ToString(CultureInfo.InvariantCulture)}-{paddedIndex}"
                 : paddedIndex;
+
+            var reservedBytes = Encoding.UTF8.GetByteCount($"{prefix} - .{extension}");
+            var maxTitleBytes = Math.Max(1, MaxFileNameBytes - reservedBytes);
+            var title = PathSanitizer.Sanitize(ComposeTitle(track.Title, track.Version), maxTitleBytes);
 
             return $"{prefix} - {title}.{extension}";
         }
